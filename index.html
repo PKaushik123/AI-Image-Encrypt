@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Blur Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <h1>⚡ AI Image Crypt</h1>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, rgba(63, 94, 251, 0.8), rgba(252, 70, 107, 0.8)), 
+                  url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: white;
+      min-height: 100vh;
+      padding: 30px;
+    }
+    .section {
+      display: none;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    .active {
+      display: block;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+    }
+    button, input[type="file"] {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    #image-container {
+      position: relative;
+      display: inline-block;
+      margin-top: 20px;
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 90%;
+    }
+    #main-image {
+      max-width: 100%;
+      display: block;
+    }
+    canvas.overlay-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <h2>Select an Image and Blur a Sensitive Area</h2>
+  <input type="file" id="imageInput" accept="image/*">
+  <button id="saveBtn">Save as Image</button>
+  <div id="image-container">
+    <img id="main-image" src="" alt="Upload an image">
+  </div>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const mainImage = document.getElementById('main-image');
+    const container = document.getElementById('image-container');
+    const saveBtn = document.getElementById('saveBtn');
+    let canvasOverlay, ctxOverlay;
+    let isDrawing = false;
+    let imgLoaded = false;
+    const brushSize = 30; // Size of blur area around cursor
+
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          mainImage.onload = () => {
+            imgLoaded = true;
+            createOverlayCanvas();
+          };
+          mainImage.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function createOverlayCanvas() {
+      if (canvasOverlay) canvasOverlay.remove();
+      const imgWidth = mainImage.clientWidth;
+      const imgHeight = mainImage.clientHeight;
+
+      canvasOverlay = document.createElement('canvas');
+      canvasOverlay.className = 'overlay-canvas';
+      canvasOverlay.width = imgWidth;
+      canvasOverlay.height = imgHeight;
+      canvasOverlay.style.width = imgWidth + 'px';
+      canvasOverlay.style.height = imgHeight + 'px';
+      container.appendChild(canvasOverlay);
+      ctxOverlay = canvasOverlay.getContext('2d');
+    }
+
+    container.addEventListener('mousedown', (e) => {
+      if (!imgLoaded) return;
+      isDrawing = true;
+      applyBlur(e);
+    });
+
+    container.addEventListener('mousemove', (e) => {
+      if (!imgLoaded || !isDrawing) return;
+      applyBlur(e);
+    });
+
+    container.addEventListener('mouseup', () => {
+      isDrawing = false;
+    });
+
+    function applyBlur(e) {
+      const rect = container.getBoundingClientRect();
+      const scaleX = mainImage.naturalWidth / mainImage.clientWidth;
+      const scaleY = mainImage.naturalHeight / mainImage.clientHeight;
+
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+
+      blurRegion(x - brushSize / 2, y - brushSize / 2, brushSize, brushSize);
+    }
+
+    function blurRegion(x, y, w, h) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = w;
+      tempCanvas.height = h;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      tempCtx.drawImage(mainImage, x, y, w, h, 0, 0, w, h);
+
+      tempCtx.globalAlpha = 0.5;
+      for (let i = -2; i <= 2; i++) {
+        for (let j = -2; j <= 2; j++) {
+          tempCtx.drawImage(tempCanvas, i, j);
+        }
+      }
+
+      const scaleX = mainImage.clientWidth / mainImage.naturalWidth;
+      const scaleY = mainImage.clientHeight / mainImage.naturalHeight;
+
+      ctxOverlay.drawImage(tempCanvas, 0, 0, w, h, x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+    }
+
+    saveBtn.addEventListener('click', () => {
+      html2canvas(container).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'blurred-image.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+    });
+  </script>
+</body>
+</html>
